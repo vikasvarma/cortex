@@ -17,8 +17,8 @@ function open(){
          }
     });
 
-    const url = "http://localhost:3000";
-    appwin.loadURL(url);
+    const URL = "http://localhost:3000";
+    appwin.loadURL(URL);
     if (isdev){
         appwin.webContents.openDevTools()
     }
