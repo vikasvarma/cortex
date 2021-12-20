@@ -14,3 +14,15 @@ ReactDOM.render(
   </React.StrictMode>,
   document.getElementById('root')
 );
+
+fetch('http://localhost:5000/user?userid=vikas@gmail.com')
+.then(response => {
+  console.log(response);
+  return response.json();
+}).then(data => {
+  // Work with JSON data here
+  console.log(data);
+}).catch(err => {
+  // Do something for an error here
+  console.log("Error Reading data " + err);
+});

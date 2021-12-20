@@ -1,10 +1,17 @@
 /**
  * 
  */
-const electron      = require('electron');
-const app           = electron.app;
-const BrowserWindow = electron.BrowserWindow;
-const isdev         = require('electron-is-dev'); 
+const electron       = require('electron');
+const path           = require('path')
+const { spawn }      = require('child_process')
+const app            = electron.app;
+const BrowserWindow  = electron.BrowserWindow;
+const isdev          = require('electron-is-dev'); 
+const PY_DIST_FOLDER = 'dist'
+const PY_FOLDER      = '../src/server'
+const PY_MODULE      = 'app' // without .py suffix
+let   pyproc         = null
+let   pyport         = null
 
 function open(){
     appwin = new BrowserWindow({
@@ -38,3 +45,46 @@ app.whenReady().then(() => {
         }
     })
 })
+
+const isAPIPacked = () => {
+    const fullPath = path.join(__dirname, PY_DIST_FOLDER)
+    return require('fs').existsSync(fullPath)
+}
+
+const getAPIPath = () => {
+    if (!isAPIPacked()) {
+        return path.join(__dirname, PY_FOLDER, PY_MODULE + '.py')
+    }
+    if (process.platform === 'win32') {
+        return path.join(__dirname, PY_DIST_FOLDER, PY_MODULE + '.exe')
+    } else {
+        return path.join(__dirname, PY_DIST_FOLDER, PY_MODULE)
+    }
+}
+
+const selectPort = () => {
+    pyport = 5000
+    return pyport
+}
+  
+const createServer = () => {
+    let port = '' + selectPort()
+    let script = path.join(__dirname, PY_FOLDER, PY_MODULE + '.py')
+
+    pyproc = spawn('python', [script])
+    pyproc.stdout.on('data', function (data) {
+        console.log("flask: ", data.toString('utf8'));
+    });
+    pyproc.stderr.on('data', (data) => {
+        console.log(`flask: ${data}`); // when error
+    });
+}
+  
+const closeServer = () => {
+    pyproc.kill()
+    pyproc = null
+    pyport = null
+}
+
+app.on('ready', createServer)
+app.on('will-quit', closeServer)

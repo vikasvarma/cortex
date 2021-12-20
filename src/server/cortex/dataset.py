@@ -2,10 +2,11 @@ from flask_restful import Resource, reqparse
 import pandas as pd
 import os
 from datetime import datetime
+from pathlib import Path
 
 database = {
-    'dataset': "./data/dataset.csv",
-    'datasample': "./data/datasample.csv"
+    'dataset': str(Path(__file__).parent.absolute()) + "/data/dataset.csv",
+    'datasample': str(Path(__file__).parent.absolute()) + "/data/datasample.csv"
 }
 
 def __now__():

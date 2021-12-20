@@ -1,12 +1,14 @@
+from flask import Response
 from flask_restful import Resource, reqparse
 import pandas as pd
+from pathlib import Path
 
 class User(Resource):
     """
     """
 
     def __init__(self):
-        self.dbpath = "./data/user.csv"
+        self.dbpath = str(Path(__file__).parent.absolute()) + "/data/user.csv"
 
     def get(self):
         parser = reqparse.RequestParser()
@@ -21,9 +23,11 @@ class User(Resource):
             # TODO - raise an error when id is not unique
             assert len(info) == 1
 
-            return {
-                'user': info.to_dict('r')
-            }, 200
+            return Response(
+                info.to_json(orient='records'),
+                200,
+                mimetype='application/json'
+            )
         
         else:
             return {}, 409

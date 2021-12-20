@@ -17,7 +17,7 @@ module.exports = {
         card: "#e7f0f2"
       },
       backgroundImage: theme => ({
-        'logo': "url('/src/assets/logo.png')"
+        'logo': "url('/src/client/assets/logo.png')"
       }),
       fontFamily: {
         'mulish': ['mulish', 'sans-serif'],

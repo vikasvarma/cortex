@@ -7,7 +7,7 @@ class Segmentation(Resource):
     """
 
     def __init__(self):
-        self.dbpath = './data/labels.csv'
+        self.dbpath = '/cortex/data/labels.csv'
         self.ocvseg = OpenCVSegmenter()
 
     def put(self):
