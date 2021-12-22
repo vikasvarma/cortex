@@ -6,7 +6,7 @@ import axios from "axios";
 
 const Home = tw.button`
     flex
-    w-10
+    w-16
     h-10
     bg-theme
     bg-opacity-50

@@ -10,7 +10,6 @@ const SidebarContainer = tw.div`
     h-full
 	w-full
     bg-white
-    grid
     border-r
     border-gray-300
     border-opacity-50

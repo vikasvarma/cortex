@@ -6,12 +6,14 @@ const path           = require('path')
 const { spawn }      = require('child_process')
 const app            = electron.app;
 const BrowserWindow  = electron.BrowserWindow;
+const protocol       = electron.protocol;
 const isdev          = require('electron-is-dev'); 
 const PY_DIST_FOLDER = 'dist'
 const PY_FOLDER      = '../src/server'
 const PY_MODULE      = 'app' // without .py suffix
 let   pyproc         = null
 let   pyport         = null
+
 
 function open(){
     appwin = new BrowserWindow({
@@ -20,7 +22,8 @@ function open(){
         frame: false,
         webPreferences: {
             nodeIntegration: true,
-            enableRemoteModule:true,
+            enableRemoteModule: true,
+            webSecurity: false
          }
     });
 
@@ -88,3 +91,11 @@ const closeServer = () => {
 
 app.on('ready', createServer)
 app.on('will-quit', closeServer)
+app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors');
+
+app.whenReady().then(() => {
+    protocol.registerFileProtocol('file', (request, callback) => {
+      const pathname = request.url.replace('file:///', '');
+      callback(pathname);
+    });
+});

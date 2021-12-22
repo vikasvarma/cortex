@@ -15,7 +15,7 @@ function RadioButtons({
                 {data.map((entry) => (
                     <RadioGroup.Option
                         key = {entry.id}
-                        value = {entry}
+                        value = {entry.id}
                         className = "focus:outline-none"
                     >
                     {({ active, checked }) => (

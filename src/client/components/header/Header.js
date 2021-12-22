@@ -17,6 +17,8 @@ const HeaderContainer = tw.div`
     w-full
     bg-gray-100
     z-10
+    border-b
+    border-gray-300
 
     -webkit-user-select: none;
     -webkit-app-region: drag;
