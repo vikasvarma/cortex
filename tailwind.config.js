@@ -26,7 +26,11 @@ module.exports = {
                 'cairo': ['cairo', 'sans-serif'],
                 'opensans': ['"Open Sans"', 'sans-serif'],
                 'inter': ['"Inter var"'],
-                'system': ['system-ui']
+                'system': ['system-ui'],
+                'elegant': ["Source Serif Pro"],
+                'fjalla': ['Fjalla One'],
+                'oswald': ['Oswald'],
+                'roboto': ['Roboto'],
             },
             gridTemplateColumns: {
                 'auto': 'auto auto auto auto',

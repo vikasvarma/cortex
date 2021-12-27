@@ -17,136 +17,192 @@ import {
     ToolbarButton,
     BreadCrumb,
     CloseButton,
-    Image,
     LabelToolContainer,
-    LabelToolIcon
+    LabelToolIcon,
+    SampleName,
+    DatasetName
 } from './labeler.styles';
 
 import {
-    RiPenNibLine, 
-    RiShapeLine, 
+    RiPenNibLine,
+    RiShapeLine,
     RiCheckboxBlankCircleLine,
     RiBrushLine,
     RiEraserLine
 } from 'react-icons/ri';
-import {HiOutlineSwitchHorizontal} from 'react-icons/hi';
-import {BiShapeTriangle} from 'react-icons/bi';
+import { HiOutlineSwitchHorizontal } from 'react-icons/hi';
+import { BiShapeTriangle } from 'react-icons/bi';
+import { AiOutlineSelect } from 'react-icons/ai';
+import ImageAnnotator from './ImageAnnotator';
+import ServerDispatcher from '../../Dispatcher';
+import InfiniteScroll from 'react-infinite-scroll-component';
+import Sample from '../cards/Sample';
+import Label from '../cards/Label';
 
 let iconStyle = "w-5 h-5";
-const LabelerTools = [,
+const LabelerTools = [
     {
-        id: 'bounding-box',
-        icon: <RiShapeLine className={iconStyle}/>,
-        ref: "/bounding-box"
+        id: 'select',
+        icon: <AiOutlineSelect className={iconStyle} />,
+        ref: '/select'
+    },
+    {
+        id: 'box',
+        icon: <RiShapeLine className={iconStyle} />,
+        ref: "/box"
     },
     {
         id: 'freehand',
-        icon: <RiPenNibLine className={iconStyle}/>,
+        icon: <RiPenNibLine className={iconStyle} />,
         ref: "/freehand"
     },
     {
         id: 'polygon',
-        icon: <BiShapeTriangle className={iconStyle}/>,
+        icon: <BiShapeTriangle className={iconStyle} />,
         ref: "/polygon"
     },
     {
         id: 'circle',
-        icon: <RiCheckboxBlankCircleLine className={iconStyle}/>,
+        icon: <RiCheckboxBlankCircleLine className={iconStyle} />,
         ref: "/circle"
     },
     {
         id: 'paint',
-        icon: <RiBrushLine className={iconStyle}/>,
+        icon: <RiBrushLine className={iconStyle} />,
         ref: "/paint"
     },
     {
         id: 'eraser',
-        icon: <RiEraserLine className={iconStyle}/>,
+        icon: <RiEraserLine className={iconStyle} />,
         ref: "/eraser"
     },
     {
         id: 'swap',
-        icon: <HiOutlineSwitchHorizontal className={iconStyle}/>,
+        icon: <HiOutlineSwitchHorizontal className={iconStyle} />,
         ref: "/swap"
     }
 ];
 
+const controller = new ServerDispatcher();
+
 class Labeler extends Component {
 
-    constructor(props) {
-        super(props);
-        this.imageRef = React.createRef();
-        this.inputRef = React.createRef();
-    }
-
     state = {
-        dataset: 'Pnuemonia Dataset',
-        sample: 'DS00001.JPG',
-        id: 'SAMDS00001',
-        path: 'file://' + '/Users/vikasvarma/Downloads/264348473_495872048288511_3715563504293009093_n.jpg',
-        tool: 'bounding-box',
+        dataset: {},
         data: "",
-        image: {
-            position: {x:0, y:0, scale:1},
-            cursor: 'crosshair'
-        }
+        sample: 0,
+        tool: 'select',
+        labels: [],
     }
 
-    setTool(value){
-        var image_prop = this.state.image;
-        image_prop.cursor = value === 'bounding-box'? 'crosshair' :'default';
-        this.setState({tool: value});
-        this.setState({image: image_prop});
-        console.log(this.state.image)
-    }
-
-    scrollImage(event){
-        let imageprop = this.state.image;
-        const delta  = event.deltaY * -0.0025;
-
-        if (imageprop.position.scale + delta > 1){
-            const factor = Math.max(1, imageprop.position.scale + delta);
-            const ratio = 1 - factor / imageprop.position.scale;
-            imageprop.position = {
-                scale: factor,
-                x: imageprop.position.x + (event.clientX - imageprop.position.x) * ratio,
-                y: imageprop.position.y + (event.clientY - imageprop.position.y) * ratio
-            }
-        } else {
-            imageprop.position = {x:0, y:0, scale:1};
-        }
-
-        this.setState({ image : imageprop });
-    }
-
-    dragImage(event){
-
-    }
-
-    imageClicked(event){
-        console.log(this.state.tool)
+    setTool(value) {
+        this.setState({ tool: value });
     }
 
     componentDidMount() {
+        // Load sample information from the server:
+        const { user, dataset } = this.props;
+        var promise = controller.get('dataset', {
+            userid: user,
+            dataid: dataset
+        })
+
+        promise.then((data) => {
+            // Parse sample information from data and load it.
+            if (data != undefined) {
+                if (data.constructor == Array) {
+                    data = data[0]; // Only one dataset can be loaded.
+                }
+
+                if (
+                    Object.keys(data).length > 0 &&
+                    data.hasOwnProperty('samples') &&
+                    data.samples.constructor == Array &&
+                    data.samples.length > 0
+                ) {
+                    data.samples.forEach(function (sample, index) {
+                        data.samples[index].path = "file://" + sample.path;
+                    })
+                    this.setState({
+                        dataset: data,
+                        sample: 0,
+                    });
+                    this.loadSample();
+
+                } else {
+                    // No samples
+                    this.setState({ dataset: data })
+                }
+            }
+        })
+    }
+
+    loadSample() {
+
+        const sample = this.state.dataset.samples[this.state.sample];
+        const filename = sample.path;
+
         var request = new XMLHttpRequest();
-        request.open('GET', this.state.path, true);
+        request.open('GET', filename, true);
         request.responseType = 'blob';
         request.onload = () => {
             var reader = new FileReader();
             reader.readAsDataURL(request.response);
             reader.addEventListener("load", (event) => {
-                this.setState({data: event.target.result});
+                this.setState({ data: event.target.result });
             }, false);
         };
         request.send();
+
+        // Now also load the labels associated with the sample.
+        const promise = controller.get('label', {
+            userid: this.props.user,
+            dataid: this.props.dataset,
+            sampleid: sample.id
+        });
+
+        promise.then((labelData) => {
+            this.setState({ labels: labelData })
+        });
+    }
+
+    addROI(payload) {
+        // Construct the JSON to send to the server:
+        var coordinates = [
+            Math.min(payload.position[0], payload.position[1]),
+            Math.max(payload.position[0], payload.position[1]),
+            Math.min(payload.position[2], payload.position[3]),
+            Math.max(payload.position[2], payload.position[3]),
+        ]
+        var json = {
+            userid: this.props.user,
+            dataid: this.props.dataset,
+            sampleid: this.state.dataset.samples[this.state.sample].id,
+            labeldef: payload.labeldef,
+            type: payload.type,
+            position: coordinates,
+        }
+
+        const promise = controller.send('PUT', 'label', json);
+        promise.then(labels => {
+            if (labels.constructor == Array) {
+                this.setState({
+                    labels: this.state.labels.concat(labels)
+                })
+
+            } else {
+                this.state.labels.push(labels)
+                this.setState({ labels: this.state.labels })
+            }
+        })
     }
 
     render() {
         return (
             <Grid
                 style={{
-                    gridTemplateRows: "3.5rem 1fr",
-                    gridTemplateColumns: "4rem 2.5fr 1fr"
+                    gridTemplateRows: "3.5rem auto",
+                    gridTemplateColumns: "4rem auto 15rem"
                 }}
             >
                 <Cell className="row-start-1 col-span-full">
@@ -168,43 +224,21 @@ class Labeler extends Component {
                             <nav className="flex align-middle">
                                 <BreadCrumb role="list">
                                     <li
-                                        key={this.state.id}
+                                        key={this.props.dataset}
                                         className={`
                                             h-6
                                             flex items-center justify-start
                                             border-r-2
                                         `}
                                     >
-                                        <a className={`
-                                                mx-3
-                                                text-sm 
-                                                text-gray-500
-                                                font-regular
-                                                font-system
-                                                tracking-wide
-                                                overflow-hidden
-                                                hover:text-theme
-                                                hover:border-b
-                                            `}
-                                        >
-                                            {this.state.dataset}
-                                        </a>
+                                        <DatasetName>
+                                            {this.state.dataset.hasOwnProperty('name') && this.state.dataset.name}
+                                        </DatasetName>
                                     </li>
                                     <li>
-                                        <a aria-current="page"
-                                            className={`
-                                                flex
-                                                ml-1
-                                                text-sm
-                                                font-regular
-                                                font-system
-                                                font-bold
-                                                text-theme
-                                                tracking-wide
-                                            `}
-                                        >
-                                            {this.state.sample}
-                                        </a>
+                                        <SampleName>
+                                            {Object.keys(this.state.dataset).length > 0 && this.state.dataset.hasOwnProperty('samples') && this.state.dataset.samples.length > 0 && this.state.dataset.samples[this.state.sample].name}
+                                        </SampleName>
                                     </li>
                                 </BreadCrumb>
                             </nav>
@@ -236,8 +270,8 @@ class Labeler extends Component {
                 <LabelToolContainer
                     className="row-start-2 col-start-1 col-span-1"
                 >
-                    <RadioGroup value={this.state.tool} 
-                                onChange={this.setTool.bind(this)}>
+                    <RadioGroup value={this.state.tool}
+                        onChange={this.setTool.bind(this)}>
                         <div className="space-y-4">
 
                             {LabelerTools.map((entry) => (
@@ -245,9 +279,8 @@ class Labeler extends Component {
                                     key={entry.id}
                                     value={entry.id}
                                     className="focus:outline-none"
-                                    className={({ active, checked }) =>`
-                                        ${
-                                            checked
+                                    className={({ active, checked }) => `
+                                        ${checked
                                             ? 'ring-theme text-theme ring-1'
                                             : 'text-gray-400'
                                         }
@@ -262,32 +295,61 @@ class Labeler extends Component {
                         </div>
                     </RadioGroup>
                 </LabelToolContainer>
-                <Cell
-                    className={`
-                        flex-col
-                        row-start-2 col-start-2
-                        overflow-hidden
-                        mx-8 my-8
-                        rounded-md
-                    `}
-                >
-                    <Image ref={this.imageRef} src={this.state.data}
-                        onClick={this.imageClicked.bind(this)}
-                        onWheelCapture={this.scrollImage.bind(this)}
-                        onDragCapture={this.dragImage.bind(this)}
+                <div className="flex flex-col row-start-2 col-start-2">
+                    <div className="px-6 py-6">
+                        <div className="overflow-hidden rounded-sm border-b border-gray-200">
+                            <div>
+                                <ImageAnnotator
+                                    sample={this.state.sample}
+                                    labels={this.state.labels}
+                                    source={this.state.data}
+                                    onDrawFinish={this.addROI.bind(this)}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <div
+                        className="overflow-x-scroll row-start-2 bg-theme bg-opacity-0"
                         style={{
-                            transformOrigin: "0 0",
-                            transform: `
-                                translate(
-                                    ${this.state.image.position.x}px, 
-                                    ${this.state.image.position.y}px
-                                ) 
-                                scale(${this.state.image.position.scale})
-                            `,
-                            cursor: `${this.state.image.cursor}`
+                            width: "500px"
                         }}
-                    />
-                </Cell>
+                    >
+                        {Object.keys(this.state.dataset).length > 0 &&
+                            <div className="divide-x px-1 py-3 flex flex-row">
+                                {this.state.dataset.samples.map(
+                                    (sample, idx) => (
+                                        <div className="flex px-5 py-3">
+                                            <Sample
+                                                sample={sample}
+                                                style={{
+                                                    width: "320px",
+                                                    height: "200px"
+                                                }}
+                                            />
+                                        </div>
+                                    )
+                                )}
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div className="col-start-3 row-start-2 flex w-full h-3/5 overflow-y-scroll bg-gray-100">
+                    {Object.keys(this.state.labels).length > 0 &&
+                        <div className="divide-y flex flex-col">
+                            {this.state.labels.map(
+                                (label, idx) => (
+                                    <div className="flex px-5 py-3">
+                                        <Label 
+                                            key={idx}
+                                            label={label} 
+                                            image={this.state.data}
+                                        />
+                                    </div>
+                                )
+                            )}
+                        </div>
+                    }
+                </div>
             </Grid>
         );
     }

@@ -50,7 +50,7 @@ export const Grid = tw.div`
 export const Cell = tw.div`
     flex
     w-full
-    h-full
+    h-auto
 `
 
 export const ToolbarContainer = tw.div`
@@ -94,8 +94,31 @@ export const LabelToolIcon = tw.div`
 `
 
 export const Image = tw.img`
-flex
-rounded-md
-w-full
-h-auto
+    flex
+    rounded-md
+    w-full
+    h-auto
+`
+
+export const DatasetName = tw.a`
+    mx-3
+    text-sm 
+    text-gray-500
+    font-regular
+    font-system
+    tracking-wide
+    overflow-hidden
+    hover:text-theme
+    hover:border-b
+`
+
+export const SampleName = tw.a`
+    flex
+    ml-1
+    text-sm
+    font-regular
+    font-system
+    font-bold
+    text-theme
+    uppercase
 `

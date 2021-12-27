@@ -1,19 +1,8 @@
+import json
+from flask.wrappers import Response
 from flask_restful import Resource, reqparse
 import pandas as pd
-import os
-from datetime import datetime
-from pathlib import Path
-
-database = {
-    'dataset': str(Path(__file__).parent.absolute()) + "/data/dataset.csv",
-    'datasample': str(Path(__file__).parent.absolute()) + "/data/datasample.csv"
-}
-
-def __now__():
-    # Returns current time stamp in YYYY-MM-DD HH:MM:SS format
-    stamp = datetime.now()
-    stamp = stamp.strftime("%Y-%m-%d %H:%M:%S")
-    return stamp
+from . import labeler, util
 
 #-------------------------------------------------------------------------------
 class Dataset(Resource):
@@ -22,15 +11,25 @@ class Dataset(Resource):
         """
         """
         parser = reqparse.RequestParser()
-        parser.add_argument('userid',location='json',type=str,required=True)
-        parser.add_argument('dataid',location='json',type=str,required=False)
+        parser.add_argument('userid',location='args',type=str,required=True)
+        parser.add_argument('dataid',location='args',type=str,required=False)
         args = parser.parse_args()
 
         try:
             datasets = self.fetch(args['userid'], args['dataid']) 
-            return {
-                'datasets': datasets.to_dict('r')
-            }, 200
+            _json_ = datasets.to_dict('r')
+            _samples_ = Datasample()
+
+            if args['dataid'] != None:
+                for n in range(len(_json_)):
+                    samples = _samples_.fetch(args['userid'], args['dataid'])
+                    _json_[n]['samples'] = samples.to_dict('r')
+
+            return Response(
+                json.dumps(_json_),
+                200,
+                mimetype='application/json'
+            )
         
         except ValueError as exp:
             return {'message': str(exp)}, 409
@@ -78,20 +77,16 @@ class Dataset(Resource):
         Base API: CSV manipulation
     """
     def fetch(self,userid,dataid=None):
-        datasets = pd.read_csv(database['dataset'])
+        datasets = pd.read_csv(util.db('dataset'))
         records  = datasets[datasets['author'] == str(userid)]
 
-        if records.empty:
-            raise ValueError(f"No datasets found for {userid} user.")
-
-        elif dataid != None:
+        if dataid != None:
             records = records[records['id'] == dataid] 
 
         return records
 
     def remove(self,userid,dataid):
-        datasets = pd.read_csv(database['dataset'])
-        samples  = pd.read_csv(database['datasample'])
+        datasets = pd.read_csv(util.db('dataset'))
         records  = datasets[datasets['author'] == userid]
         
         if str(dataid) in str(records['id']):
@@ -99,21 +94,14 @@ class Dataset(Resource):
                 (datasets['id'] == dataid) & 
                 (datasets['author'] == userid)
             ].index, inplace=True)
-
-            # also remove any data samples stored against the dataset:
-            samples.drop(
-                samples[samples['dataset'] == str(dataid)].index, 
-                inplace=True
-            )
             
-            samples.to_csv(database['datasample'], index=False)
-            datasets.to_csv(database['dataset'], index=False)
+            datasets.to_csv(util.db('dataset'), index=False)
 
         else:
             raise ValueError(f"Dataset {dataid} does not exist.")
 
     def add(self,userid,path,name):
-        datasets = pd.read_csv(database['dataset'])
+        datasets = pd.read_csv(util.db('dataset'))
         records  = datasets[datasets['author'] == userid]
 
         if str(path) in str(records['path']):
@@ -126,15 +114,15 @@ class Dataset(Resource):
                 'name'      : name,
                 'path'      : path,
                 'author'    : userid,
-                'createdon' : __now__(),
-                'modifiedon': __now__(),
+                'createdon' : util.now(),
+                'modifiedon': util.now(),
                 'modifiedby': userid
             }, ignore_index=True)
 
             entry = datasets[datasets['id'] == dataid]
 
             # save to database:
-            datasets.to_csv(database['dataset'], index=False)
+            datasets.to_csv(util.db('dataset'), index=False)
 
             return entry
 
@@ -143,7 +131,7 @@ class Dataset(Resource):
         path = None,
         status = None
     ):
-        datasets = pd.read_csv(database['dataset'])
+        datasets = pd.read_csv(util.db('dataset'))
         records  = datasets[datasets['author'] == userid]
 
         if str(dataid) not in str(records['id']):
@@ -156,10 +144,10 @@ class Dataset(Resource):
             if path != None: datasets.loc[row,'path'] = path
             if status != None: datasets.loc[row,'status'] = status
             
-            datasets.loc[row,'modifiedon'] = __now__()
+            datasets.loc[row,'modifiedon'] = util.now()
             datasets.loc[row,'modifiedby'] = userid
 
-            datasets.to_csv(database['dataset'], index=False)
+            datasets.to_csv(util.db('dataset'), index=False)
             entry = datasets[row]
 
             return entry
@@ -171,9 +159,9 @@ class Datasample(Resource):
         """
         """
         parser = reqparse.RequestParser()
-        parser.add_argument('userid'  ,location='json',type=str,required=True)
-        parser.add_argument('dataid'  ,location='json',type=str,required=True)
-        parser.add_argument('sampleid',location='json',type=str,required=False)
+        parser.add_argument('userid'  ,location='args',type=str,required=True)
+        parser.add_argument('dataid'  ,location='args',type=str,required=True)
+        parser.add_argument('sampleid',location='args',type=str,required=False)
         args = parser.parse_args()
 
         try:
@@ -181,12 +169,28 @@ class Datasample(Resource):
                 args['userid'], args['dataid'], args['sampleid']
             )
 
-            return {
-                'samples': samples.to_dict('r')
-            }, 200
+            # Append label information for single sample queries:
+            _labels_ = labeler.Labels()
+            _json_   = samples.to_dict('r')
+
+            if args['sampleid'] != None:
+                for n in range(0,len(_json_)):
+                    _json_[n]["labels"] = _labels_.fetch(
+                        args['userid'], _json_[n]['dataset'], _json_[n]['id']
+                    )
+
+            return Response(
+                json.dumps(_json_), 
+                200,
+                mimetype='application/json'
+            )
         
         except ValueError as exp:
-            return {'message': str(exp)}, 409
+            return Response(
+                json.dumps({'message': str(exp)}), 
+                409,
+                mimetype='application/json'
+            )
 
     def put(self):
 
@@ -217,10 +221,18 @@ class Datasample(Resource):
                     status = args['status']
                 )
             
-            return {'sample': entry.to_dict('r')}, 200
+            return Response(
+                json.dumps(entry), 
+                200,
+                mimetype='application/json'
+            )
 
         except ValueError as exp:
-            return {'message': str(exp)}, 409
+            return Response(
+                json.dumps({'message': str(exp)}), 
+                409,
+                mimetype='application/json'
+            )
 
     def delete(self):
         parser = reqparse.RequestParser()
@@ -240,33 +252,23 @@ class Datasample(Resource):
         Base API: CSV manipulation
     """
     def fetch(self,userid,dataid,sampleid=None):
-        datasets = pd.read_csv(database['dataset'])
+        datasets = pd.read_csv(util.db('dataset'))
         self.__assert_dataset__(datasets,userid,dataid)
 
         # Read samples:
-        samples  = pd.read_csv(database['datasample'])
+        samples  = pd.read_csv(util.db('datasample'))
         records  = samples[samples['dataset'] == dataid]
 
         if sampleid != None:
             records = records[records['id'] == sampleid]
-            print(records)
 
-        if records.empty:
-            if sampleid == None:
-                msg = f"No data samples found for {dataid} dataset."
-            else:
-                msg = f"Data sample {sampleid} not found for {dataid} dataset."
-
-            raise ValueError(msg)
-
-        else:
-            return records
+        return records
 
     def remove(self,userid,dataid,sampleid=None):
-        datasets = pd.read_csv(database['dataset'])
+        datasets = pd.read_csv(util.db('dataset'))
         self.__assert_dataset__(datasets,userid,dataid)
 
-        samples = pd.read_csv(database['datasample'])
+        samples = pd.read_csv(util.db('datasample'))
         
         if sampleid is None: # remove all
             samples.drop(
@@ -287,13 +289,13 @@ class Datasample(Resource):
                 raise ValueError(f"Data sample(s) {sampleid} do not exist.")
         
         # Write back remaining samples:
-        samples.to_csv(database['datasample'], index=False)
+        samples.to_csv(util.db('datasample'), index=False)
 
     def add(self,userid,dataid,path,name,kind=None):
-        datasets = pd.read_csv(database['dataset'])
+        datasets = pd.read_csv(util.db('dataset'))
         self.__assert_dataset__(datasets,userid,dataid)
 
-        samples = pd.read_csv(database['datasample'])
+        samples = pd.read_csv(util.db('datasample'))
         records = samples[samples['dataset'] == dataid]
         
         if str(path) in str(records['path']):
@@ -310,17 +312,17 @@ class Datasample(Resource):
                 'path'      : path,
                 'type'      : kind,
                 'metadata'  : None,
-                'createdon' : __now__(),
-                'modifiedon': __now__(),
+                'createdon' : util.now(),
+                'modifiedon': util.now(),
                 'modifiedby': userid
             }, ignore_index=True)
 
             entry = samples[samples['id'] == sampleid]
 
             # save to database:
-            samples.to_csv(database['datasample'], index=False)
+            samples.to_csv(util.db('datasample'), index=False)
 
-            return entry
+            return entry.to_dict('r')
 
     def modify(self,userid,dataid,sampleid,
         name = None,
@@ -328,10 +330,10 @@ class Datasample(Resource):
         kind = None,
         status = None
     ):
-        datasets = pd.read_csv(database['dataset'])
+        datasets = pd.read_csv(util.db('dataset'))
         self.__assert_dataset__(datasets,userid,dataid)
 
-        samples = pd.read_csv(database['datasample'])
+        samples = pd.read_csv(util.db('datasample'))
         record = samples[
             (samples['dataset'] == dataid) & (samples['id'] == sampleid)
         ]
@@ -347,13 +349,13 @@ class Datasample(Resource):
             if kind != None: samples.loc[row,'type'] = kind
             if status != None: samples.loc[row,'status'] = status
             
-            samples.loc[row,'modifiedon'] = __now__()
+            samples.loc[row,'modifiedon'] = util.now()
             samples.loc[row,'modifiedby'] = userid
 
-            samples.to_csv(database['datasample'], index=False)
+            samples.to_csv(util.db('datasample'), index=False)
             entry = samples[row]
 
-            return entry
+            return entry.to_dict('r')
 
     def __assert_dataset__(self,df,userid,dataid):
         df = df[(df['author'] == userid) & (df['id'] == dataid)]

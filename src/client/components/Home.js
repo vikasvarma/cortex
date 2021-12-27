@@ -5,7 +5,6 @@ import React, { Component } from 'react';
 import tw from 'tailwind-styled-components';
 import Header from './header/Header';
 import Labeler from './labeler/Labeler';
-import Sidebar from './sidebar/Sidebar';
 import Controlbar from './controlbar/Controlbar';
 import Searchbar from './controlbar/Searchbar';
 import Details from './details/Details';
@@ -20,8 +19,8 @@ class Home extends Component {
     state = {
         sidebar: window.innerWidth < 768,
         details: window.innerWidth > 1280,
-        dataset: {id:'1',name:'DS000002',href:null},
-        sample : {id:'2',name:'SAM000002',href:null}
+        user: 'vikas@gmail.com',
+        dataset: 'DS000002'
     }
 
     setPanels = () => {
@@ -29,8 +28,6 @@ class Home extends Component {
         this.setState({
             sidebar: window.innerWidth < 768,
             details: window.innerWidth > 1280,
-            dataset: {id:'1',name:'DS000002',href:null},
-            sample : {id:'2',name:'SAM000002',href:null}
         });
     }
 
@@ -82,8 +79,10 @@ class Home extends Component {
                         border-gray-300
                         border-opacity-50
                     `}>
-                        <Labeler dataset={this.state.dataset} 
-                                 sample ={this.state.sample}/>
+                        <Labeler 
+                            user={this.state.user}
+                            dataset={this.state.dataset}
+                        />
                     </GridDiv>
                 </div>
             </>
