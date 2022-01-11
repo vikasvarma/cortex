@@ -36,8 +36,9 @@ import { AiOutlineSelect } from 'react-icons/ai';
 import ImageAnnotator from './ImageAnnotator';
 import ServerDispatcher from '../../Dispatcher';
 import InfiniteScroll from 'react-infinite-scroll-component';
-import Sample from '../cards/Sample';
-import Label from '../cards/Label';
+import Sample from './Sample';
+import Label from './Label';
+import LabelBrowser from './LabelBrowser';
 
 let iconStyle = "w-5 h-5";
 const LabelerTools = [
@@ -84,13 +85,14 @@ const LabelerTools = [
 ];
 
 const controller = new ServerDispatcher();
+const path = window.require('path');
 
 class Labeler extends Component {
 
     state = {
         dataset: {},
-        data: "",
-        sample: 0,
+        image: "",
+        current: 0,
         tool: 'select',
         labels: [],
     }
@@ -100,47 +102,35 @@ class Labeler extends Component {
     }
 
     componentDidMount() {
-        // Load sample information from the server:
-        const { user, dataset } = this.props;
-        var promise = controller.get('dataset', {
-            userid: user,
-            dataid: dataset
-        })
-
-        promise.then((data) => {
-            // Parse sample information from data and load it.
-            if (data != undefined) {
-                if (data.constructor == Array) {
-                    data = data[0]; // Only one dataset can be loaded.
-                }
-
-                if (
-                    Object.keys(data).length > 0 &&
-                    data.hasOwnProperty('samples') &&
-                    data.samples.constructor == Array &&
-                    data.samples.length > 0
-                ) {
-                    data.samples.forEach(function (sample, index) {
-                        data.samples[index].path = "file://" + sample.path;
-                    })
-                    this.setState({
-                        dataset: data,
-                        sample: 0,
-                    });
-                    this.loadSample();
-
-                } else {
-                    // No samples
-                    this.setState({ dataset: data })
-                }
+        const { dataset } = this.props;
+        if (dataset != undefined) {
+            if (dataset.constructor == Array) {
+                dataset = dataset[0]; // Only one dataset can be loaded.
             }
-        })
+            this.loadSample(this.getSample(0))
+        }
     }
 
-    loadSample() {
+    getSample = (index) => {
+        const { dataset } = this.props;
+        if (
+            Object.keys(dataset).length > 0 &&
+            dataset.hasOwnProperty('samples') &&
+            dataset.samples.constructor == Array &&
+            dataset.samples.length > 0
+        ) { 
+            return dataset.samples[index];
+        } else {
+            return null;
+        }
+    }
 
-        const sample = this.state.dataset.samples[this.state.sample];
-        const filename = sample.path;
+    loadSample = (sample) => {
+
+        const { dataset, userid } = this.props;
+        var filename = path.join(
+            "file://", dataset.path, sample.path
+        );
 
         var request = new XMLHttpRequest();
         request.open('GET', filename, true);
@@ -149,21 +139,22 @@ class Labeler extends Component {
             var reader = new FileReader();
             reader.readAsDataURL(request.response);
             reader.addEventListener("load", (event) => {
-                this.setState({ data: event.target.result });
+                this.setState({ image: event.target.result });
             }, false);
         };
         request.send();
 
-        // Now also load the labels associated with the sample.
+        /* Now also load the labels associated with the sample.
         const promise = controller.get('label', {
-            userid: this.props.user,
-            dataid: this.props.dataset,
+            userid: userid,
+            dataid: dataset.id,
             sampleid: sample.id
         });
 
         promise.then((labelData) => {
             this.setState({ labels: labelData })
         });
+        */
     }
 
     addROI(payload) {
@@ -198,11 +189,15 @@ class Labeler extends Component {
     }
 
     render() {
+
+        const {dataset} = this.props;
+        const sample = this.getSample(this.state.current);
+
         return (
             <Grid
                 style={{
                     gridTemplateRows: "3.5rem auto",
-                    gridTemplateColumns: "4rem auto 15rem"
+                    gridTemplateColumns: "4rem auto 20rem"
                 }}
             >
                 <Cell className="row-start-1 col-span-full">
@@ -224,7 +219,7 @@ class Labeler extends Component {
                             <nav className="flex align-middle">
                                 <BreadCrumb role="list">
                                     <li
-                                        key={this.props.dataset}
+                                        key={dataset.id}
                                         className={`
                                             h-6
                                             flex items-center justify-start
@@ -232,12 +227,14 @@ class Labeler extends Component {
                                         `}
                                     >
                                         <DatasetName>
-                                            {this.state.dataset.hasOwnProperty('name') && this.state.dataset.name}
+                                        {
+                                            dataset.hasOwnProperty('name') &&  dataset.name
+                                        }
                                         </DatasetName>
                                     </li>
                                     <li>
                                         <SampleName>
-                                            {Object.keys(this.state.dataset).length > 0 && this.state.dataset.hasOwnProperty('samples') && this.state.dataset.samples.length > 0 && this.state.dataset.samples[this.state.sample].name}
+                                            {sample != null ? sample.path : ""}
                                         </SampleName>
                                     </li>
                                 </BreadCrumb>
@@ -295,34 +292,36 @@ class Labeler extends Component {
                         </div>
                     </RadioGroup>
                 </LabelToolContainer>
-                <div className="flex flex-col row-start-2 col-start-2">
-                    <div className="px-6 py-6">
-                        <div className="overflow-hidden rounded-sm border-b border-gray-200">
-                            <div>
-                                <ImageAnnotator
-                                    sample={this.state.sample}
-                                    labels={this.state.labels}
-                                    source={this.state.data}
-                                    onDrawFinish={this.addROI.bind(this)}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                    <div
-                        className="overflow-x-scroll row-start-2 bg-theme bg-opacity-0"
+                <div className="flex flex-col row-start-2 col-start-2 px-6 py-6 overflow-hidden"
+                >
+                    <div className="flex overflow-hidden h-full rounded-sm border-b border-gray-200"
                         style={{
-                            width: "500px"
+                            maxHeight: "calc(100vh - 350px)"
                         }}
                     >
+                        <div className="object-scale-down"
+                            style={{
+                                maxHeight: "calc(100vh - 350px)"
+                            }}
+                        >
+                            <ImageAnnotator
+                                sample={this.state.sample}
+                                labels={this.state.labels}
+                                source={this.state.image}
+                                onDrawFinish={this.addROI.bind(this)}
+                            />
+                        </div>
+                    </div>
+                    <div className="flex overflow-x-scroll">
                         {Object.keys(this.state.dataset).length > 0 &&
-                            <div className="divide-x px-1 py-3 flex flex-row">
-                                {this.state.dataset.samples.map(
+                            <div className="pr-1 pt-3 flex flex-row">
+                                {[].map(
                                     (sample, idx) => (
-                                        <div className="flex px-5 py-3">
+                                        <div className="flex pr-2">
                                             <Sample
                                                 sample={sample}
                                                 style={{
-                                                    width: "320px",
+                                                    width: "180px",
                                                     height: "200px"
                                                 }}
                                             />
@@ -333,22 +332,11 @@ class Labeler extends Component {
                         }
                     </div>
                 </div>
-                <div className="col-start-3 row-start-2 flex w-full h-3/5 overflow-y-scroll bg-gray-100">
-                    {Object.keys(this.state.labels).length > 0 &&
-                        <div className="divide-y flex flex-col">
-                            {this.state.labels.map(
-                                (label, idx) => (
-                                    <div className="flex px-5 py-3">
-                                        <Label 
-                                            key={idx}
-                                            label={label} 
-                                            image={this.state.data}
-                                        />
-                                    </div>
-                                )
-                            )}
-                        </div>
-                    }
+                <div className="col-start-3 row-start-2 flex overflow-hidden">
+                    <LabelBrowser
+                        labels={this.state.labels}
+                        image={this.state.data}
+                    />
                 </div>
             </Grid>
         );

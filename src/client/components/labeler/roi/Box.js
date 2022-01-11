@@ -13,10 +13,11 @@ export const BoxState = {
 export function BoxReducer(state, action) {
     const payload = action.payload;
     const type = action.type;
+    var pos;
 
     switch (type) {
         case 'START':
-            var pos = [payload.x, payload.x, payload.y, payload.y];
+            pos = [payload.x, payload.x, payload.y, payload.y];
             return {
                 ...state,
                 position: pos,
@@ -25,7 +26,7 @@ export function BoxReducer(state, action) {
         case 'UPDATE':
         case 'END':
             {
-                var pos = state.position;
+                pos = state.position;
                 pos[1] = payload.x;
                 pos[3] = payload.y;
                 return {

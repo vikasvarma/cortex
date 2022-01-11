@@ -5,12 +5,10 @@ import Home from './client/components/Home'
 
 // Style Components:
 import './index.css'
-import GlobalStyles from './client/styles/global.styles'
 
 ReactDOM.render(
   <React.StrictMode>
-    <GlobalStyles />
-    <Home />
+    <Home user={0}/>
   </React.StrictMode>,
   document.getElementById('root')
 );

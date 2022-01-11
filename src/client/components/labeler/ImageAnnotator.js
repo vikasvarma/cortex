@@ -157,6 +157,7 @@ class ImageAnnotator extends Component {
                 onMouseUp={this.finishDrawing.bind(this)}
                 onWheelCapture={this.scrollImage.bind(this)}
                 style={{
+                    ...this.props.style,
                     transform: `
                         scale(${this.state.zoom})
                     `,

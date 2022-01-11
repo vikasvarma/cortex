@@ -105,7 +105,7 @@ export const DatasetName = tw.a`
     text-sm 
     text-gray-500
     font-regular
-    font-system
+    font-poppins
     tracking-wide
     overflow-hidden
     hover:text-theme
@@ -117,8 +117,9 @@ export const SampleName = tw.a`
     ml-1
     text-sm
     font-regular
-    font-system
-    font-bold
-    text-theme
+    font-poppins
+    font-semibold
+    scale-y-125
+    text-gray-800
     uppercase
 `

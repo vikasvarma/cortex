@@ -1,3 +1,2 @@
-id,name,email,password,role,type,avatar
-vikas@gmail.com,Vikas Varma,vikas@gmail.com,nobugs,Software Developer,admin,
-aditi@gmail.com,Aditi K,aditi@gmail.com,nobugs,Technician,annotater,
+id,name,email,password,location,role,avatar
+0,Vikas Varma,vikas@cortex.com,UnlockTheMind,US,0,//

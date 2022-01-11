@@ -13,7 +13,7 @@ module.exports = {
                 navbar: "#fafafa",
                 hover: "rgb(216, 237, 223)",
                 selected: "rgb(155, 196, 169)",
-                theme: "#146264",
+                theme: "#D7E4CF",
                 card: "#e7f0f2"
             },
             backgroundImage: theme => ({
@@ -31,6 +31,8 @@ module.exports = {
                 'fjalla': ['Fjalla One'],
                 'oswald': ['Oswald'],
                 'roboto': ['Roboto'],
+                'poppins': ['Poppins'],
+                'playfair': ['Playfair Display'],
             },
             gridTemplateColumns: {
                 'auto': 'auto auto auto auto',
@@ -54,5 +56,8 @@ module.exports = {
             cursor: ['hover', 'active'],
         },
     },
-    plugins: [],
+    plugins: [
+        // ...
+        require("@tailwindcss/line-clamp")
+    ],
 }
