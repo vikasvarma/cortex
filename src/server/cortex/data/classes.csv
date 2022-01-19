@@ -1,1 +1,4 @@
 id,userid,dataid,name,color,createdon,modifiedon,modifiedby
+0,0,0,Normal,#AFEFA4,20220115110614,20220115110614,0
+1,0,0,Bacterial Pneumonia,#A4C2EF,20220115110614,20220115110614,0
+2,0,0,Viral Pneumonia,#CA9EDF,20220115110614,20220115110614,0

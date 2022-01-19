@@ -7,9 +7,6 @@ export const Card = tw.div`
     bg-white
     overflow-hidden
     flex-col
-    border-black
-    border-opacity-75
-    border
     px-3 py-3
     focus-within:shadow-lg
 `
@@ -38,26 +35,33 @@ export const Thumbnail = tw.img`
     w-full
 `
 
+const path = window.require('path');
+
 export default class Sample extends React.Component {
 
     constructor(props) {
         super(props);
 
         this.state = {
-            data: "",
+            thumbnail: "",
         }
     }
 
     componentDidMount() {
 
+        const { sample, datapath } = this.props;
+        const filename = path.join(
+            "file://", datapath, sample.path
+        );
+
         var request = new XMLHttpRequest();
-        request.open('GET', this.props.sample.path, true);
+        request.open('GET', filename, true);
         request.responseType = 'blob';
         request.onload = () => {
             var reader = new FileReader();
             reader.readAsDataURL(request.response);
             reader.addEventListener("load", (event) => {
-                this.setState({ data: event.target.result });
+                this.setState({ thumbnail: event.target.result });
             }, false);
         };
         request.send();
@@ -67,7 +71,7 @@ export default class Sample extends React.Component {
     render() {
         return (
             <Card style={{...this.props.style}}>
-                <Thumbnail src={this.state.data} alt=''/>
+                <Thumbnail src={this.state.thumbnail} alt=''/>
                 <div className="flex flex-row pt-2">
                     <div className="flex flex-grow align-middle justify-start">
                         <div className="font-regular uppercase font-poppins py-1"

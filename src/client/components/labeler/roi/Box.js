@@ -88,9 +88,8 @@ export class Box extends Component {
         const imgpos = container.getBoundingClientRect()
 
         if (position.constructor == String){
-            position = position.replace(/\s+/g,'');
             position = position.slice(1,position.length-1);
-            position = position.split(',').map((x) => {
+            position = position.split(' ').map((x) => {
                 return Number(x.trim())
             });
         }

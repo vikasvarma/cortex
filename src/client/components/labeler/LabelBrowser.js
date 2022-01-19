@@ -5,12 +5,13 @@ import { FiLayers } from 'react-icons/fi';
 import { HiOutlineSortDescending } from 'react-icons/hi';
 
 const Container = tw.div`
-    grid
+    flex
+    flex-col
     w-full
     h-full
     border-l
     overflow-hidden
-    border-gray-300
+    border-gray-200
 `
 
 const Knob = tw.div`
@@ -35,7 +36,7 @@ const SortIcon = () => {
 const BackgroundBlob = () => {
     return (
         <svg width="100%" height="100%" viewBox="0 0 363 317"
-            className="px-6 py-4"
+            className="px-6 pb-2"
             fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M278.037 104.92C314.687 146.778 361.737 184.426 362.975 224.302C364.213 264.427 319.639 307.028 275.065 315.449C230.492 323.622 185.67 297.864 136.144 276.315C86.6176 254.767 31.891 237.429 10.5947 197.305C-10.7017 157.181 1.18466 94.2699 36.596 52.6596C72.0074 11.0492 130.696 -9.01299 173.041 3.86642C215.386 16.9935 241.635 63.0621 278.037 104.92Z" fill="#BED2C0" fill-opacity="0.25" />
         </svg>
@@ -51,9 +52,8 @@ function Preview(props) {
     // Calculate a N-by-N region around the bounding box to 
     // display as the label thumbnail.
     if (position.constructor == String) {
-        position = position.replace(/\s+/g, '');
         position = position.slice(1, position.length - 1);
-        position = position.split(',').map((x) => {
+        position = position.split(' ').map((x) => {
             return Number(x.trim())
         });
     }
@@ -135,8 +135,10 @@ function Preview(props) {
 export default class LabelBrowser extends React.Component {
     constructor(props) {
         super(props);
+        this.container = React.createRef();
         this.state = {
             selected: 0,
+            height: 0,
         }
     }
 
@@ -144,32 +146,39 @@ export default class LabelBrowser extends React.Component {
         this.setState({selected: key});
     }
 
+    resize = () => {
+        const parent = this.container.current;
+        if (parent != undefined) {
+            const position = parent.getBoundingClientRect();
+            this.setState({ height: Math.max(0, position.height - 353.66) })
+        }
+    }
+
+    componentDidMount() {
+        this.resize();
+        window.addEventListener('resize', this.resize)
+    }
+
     render() {
 
-        const { labels, image } = this.props;
+        const { labels, image, classes } = this.props;
 
         return (
-            <Container>
+            <Container ref={this.container}>
                 <div className="flex w-full place-items-center px-4 py-4">
-                    <FiLayers
-                        className="flex text-black w-6 h-6"
-                        style={{
-                            strokeWidth: "1.5px"
-                        }}
-                    />
-                    <p className="flex flex-grow text-xl pl-4 font-poppins font-semibold">Labels</p>
+                    <p className="flex flex-grow text-xl pl-2 font-poppins font-semibold">Labels</p>
                     <button
-                        className="flex flex-row text-black font-poppins border border-black px-2 py-1 place-items-center focus:outline-none"
+                        className="flex flex-row text-black font-poppins px-2 place-items-center border-b border-black focus:outline-none items-center align-middle"
                         style={{
-                            fontSize: "10px",
+                            fontSize: "12px",
                             height: "26px",
                         }}
                     >
-                        <p className="pr-4 pl-1">Date Created</p>
-                        <SortIcon
-                            className="w-4 h-4"
+                        <p className="pr-2">Date</p>
+                        <HiOutlineSortDescending className="my-1"
                             style={{
-                                marginBottom: "1px",
+                                width: "12px",
+                                height: "12px",
                             }}
                         />
                     </button>
@@ -183,24 +192,27 @@ export default class LabelBrowser extends React.Component {
                     }
                 </div>
 
-                <div className="flex w-full place-content-center pb-4 border-b border-gray-400">
+                <div className="flex w-full place-content-center pb-4 border-b border-gray-200">
                     <svg width="14" height="8" viewBox="0 0 14 8" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M1 1L7 7L13 1" stroke="black" stroke-linecap="round" />
                     </svg>
                 </div>
                 {Object.keys(labels).length > 0 &&
-                    <div className="flex flex-col mt-4 py-1 overflow-y-scroll"
+                    <div
                         style={{
-                            maxHeight: "calc(100% - 270px)",
+                            flex: "1 1 auto",
+                            overflowY: "auto",
+                            height: "0px",
                         }}
                     >
                         {labels.map(
                             (label, idx) => (
-                                <div className="flex px-5 py-1">
+                                <div className="flex">
                                     <Label
                                         key={idx}
                                         labelid={idx}
                                         label={label}
+                                        category={classes[label.classid]}
                                         image={image}
                                         selected={this.state.selected == idx}
                                         onSelected={this.onSelected.bind(this)}

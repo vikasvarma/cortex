@@ -8,9 +8,9 @@ const Home = tw.button`
     flex
     w-16
     h-10
-    bg-theme
+    bg-theme5
     bg-opacity-50
-    text-white
+    text-black
     place-content-center
     place-items-center
     cursor-default

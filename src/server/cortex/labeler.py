@@ -2,8 +2,11 @@ from flask import Response
 from flask_restful import Resource, reqparse
 import pandas as pd
 import numpy as np
+import shutil
 import json
 import os
+import tempfile
+import csv
 from model.segmentation import OpenCVSegmenter
 from . import util
 
@@ -66,30 +69,47 @@ class Segmentation(Resource):
 
 class Labels(Resource):
 
+    def __init__(self) -> None:
+        super().__init__()
+        self.chunksize = 10 ** 6
+        self.columns = [
+            'id',
+            'userid',
+            'dataid',
+            'sampleid',
+            'classid',
+            'type',
+            'position',
+            'createdon',
+            'modifiedon',
+            'modifiedby'
+        ]
+
     def get(self):
         """
         """
         parser = reqparse.RequestParser()
-        parser.add_argument('labelid' ,location='args',type=str,required=False)
-        parser.add_argument('userid'  ,location='args',type=str,required=True)
-        parser.add_argument('dataid'  ,location='args',type=str,required=True)
-        parser.add_argument('sampleid',location='args',type=str,required=True)
+        parser.add_argument('labelid', location='args', required=False)
+        parser.add_argument('userid', location='args', type=int, required=True)
+        parser.add_argument('dataid', location='args', type=int, required=True)
+        parser.add_argument('sampleid', location='args',
+                            type=int, required=True)
         args = parser.parse_args()
 
         try:
             labels = self.fetch(
-                args['userid'],args['dataid'],args['sampleid'],args['labelid']
+                args['userid'], args['dataid'], args['sampleid'], args['labelid']
             )
 
             return Response(
-                json.dumps(labels,indent=4),
+                json.dumps(labels, cls=util.NumpyEncoder),
                 200,
                 mimetype='application/json'
             )
 
         except ValueError as exp:
             return Response(
-                json.dumps({'message': str(exp)},indent=4),
+                json.dumps({'message': str(exp)}, indent=4),
                 409,
                 mimetype='application/json'
             )
@@ -97,34 +117,38 @@ class Labels(Resource):
     def put(self):
 
         parser = reqparse.RequestParser()
-        parser.add_argument('labelid' ,location='json',type=str,required=False)
-        parser.add_argument('userid'  ,location='json',type=str,required=True)
-        parser.add_argument('dataid'  ,location='json',type=str,required=True)
-        parser.add_argument('sampleid',location='json',type=str,required=True)
-        parser.add_argument('labeldef',location='json',type=str,required=True)
-        parser.add_argument('type'    ,location='json',type=str,required=True)
-        parser.add_argument('position',location='json',type=list,required=True)
-        parser.add_argument('status'  ,location='json',type=str,required=False,
-                                       default="draft")
+        parser.add_argument('labelid', location='json', required=False)
+        parser.add_argument('userid', location='json', required=True, type=int)
+        parser.add_argument('dataid', location='json', required=True, type=int)
+        parser.add_argument('sampleid', location='json',
+                            required=True, type=int)
+        parser.add_argument('classid', location='json',
+                            required=True, type=int)
+        parser.add_argument('type', location='json', required=True, type=str)
+        parser.add_argument('position', location='json',
+                            required=True, type=list)
         args = parser.parse_args()
+
+        args['labelid'] = util.tonumpy(args['labelid'])
+        args['position'] = util.tonumpy(args['position'])
 
         try:
             if args['labelid'] is None:  # add
                 entry = self.add(
                     args['userid'], args['dataid'], args['sampleid'],
-                    args['labeldef'], args['type'], args['position'],
-                    status=args['status']
+                    args['classid'], args['type'], args['position']
                 )
 
             else:  # modify
                 entry = self.modify(
-                    args['labelid'],args['userid'],args['dataid'],args['sampleid'],
-                    position = args['position'], 
-                    status = args['status']
+                    args['labelid'], args['userid'], args['dataid'],
+                    args['sampleid'],
+                    position=args['position'],
+                    classid=args['classid']
                 )
 
             return Response(
-                json.dumps(entry,indent=4),
+                json.dumps(entry, cls=util.NumpyEncoder),
                 200,
                 mimetype='application/json'
             )
@@ -134,26 +158,28 @@ class Labels(Resource):
 
     def delete(self):
         parser = reqparse.RequestParser()
-        parser.add_argument('labelid' ,location='json',type=str,required=False)
-        parser.add_argument('userid'  ,location='json',type=str,required=True)
-        parser.add_argument('dataid'  ,location='json',type=str,required=True)
-        parser.add_argument('sampleid',location='json',type=str,required=True)
+        parser.add_argument('labelid', location='json',
+                            type=str, required=False)
+        parser.add_argument('userid', location='json', type=str, required=True)
+        parser.add_argument('dataid', location='json', type=str, required=True)
+        parser.add_argument('sampleid', location='json',
+                            type=str, required=True)
         args = parser.parse_args()
 
         try:
             self.remove(
-                args['userid'],args['dataid'],args['sampleid'],args['labelid']
+                args['userid'], args['dataid'], args['sampleid'], args['labelid']
             )
 
             return Response(
-                json.dumps({'message': "success"},indent=4),
+                json.dumps({'message': "success"}, indent=4),
                 200,
                 mimetype='application/json'
             )
 
         except ValueError as exp:
             return Response(
-                json.dumps({'message': str(exp)},indent=4),
+                json.dumps({'message': str(exp)}, indent=4),
                 409,
                 mimetype='application/json'
             )
@@ -164,117 +190,148 @@ class Labels(Resource):
 
     def fetch(self, userid, dataid, sampleid, labelid=None):
 
-        util.assert_sample(userid, dataid, sampleid)
+        # Read labels for specified sample:
+        labels = []
+        for chunk in pd.read_csv(
+            util.db('label'), chunksize=self.chunksize
+        ):
+            chunk = chunk[
+                (chunk['userid'] == userid) &
+                (chunk['dataid'] == dataid) &
+                (chunk['sampleid'] == sampleid)
+            ]
 
-        # Read samples:
-        labels = pd.read_csv(util.db('label'))
-        records = labels[
-            (labels['dataset']==dataid) & (labels['sample']==sampleid)
-        ]
-        
-        if labelid != None:
-            records = records[records['id'] == labelid]
+            if labelid is not None:
+                rows = np.where(chunk.id.isin(labelid))[0]
+                if rows.shape[0] > 0:
+                    chunk = chunk.iloc[rows]
 
-        return records.to_dict('r')
+            labels += chunk.to_dict('r')
+
+        return labels
 
     def remove(self, userid, dataid, sampleid, labelid=None):
-        
-        util.assert_sample(userid, dataid, sampleid)
-        labels = pd.read_csv(util.db('label'))
 
-        if labelid is None:  # remove all
-            labels.drop(
-                labels[
-                    (labels['dataset']==dataid) & 
-                    (labels['sample']==sampleid)
-                ].index, inplace=True
-            )
+        ftmp = tempfile.NamedTemporaryFile(
+            mode='a', delete=False, dir=util.db(name=None), suffix=".csv"
+        )
 
-        else:  # remove specified
-            rows = (
-                (labels['dataset'] == dataid) &
-                (labels['sample'] == sampleid) & 
-                (labels['id'] == labelid)
-            )
+        # write columns to file:
+        writer = csv.DictWriter(ftmp, self.columns)
+        writer.writeheader()
+        ftmp.flush()
 
-            if any(rows):
-                labels.drop(labels[rows].index, inplace=True)
+        # track maximum id:
+        maxid = -1
+        try:
+            for chunk in pd.read_csv(
+                util.db('label'), chunksize=self.chunksize
+            ):
+                # check sampleid exists in chunk and update the rows:
+                if labelid is None:
+                    rows = np.where(
+                        (chunk['userid'] == userid) &
+                        (chunk['dataid'] != dataid) &
+                        (chunk['sampleid'] != sampleid)
+                    )[0]
+                else:
+                    rows = np.where(
+                        (~chunk.id.isin(labelid)) &
+                        (chunk['userid'] == userid) &
+                        (chunk['dataid'] == dataid) &
+                        (chunk['sampleid'] != sampleid)
+                    )[0]
 
-            else:
-                raise ValueError(
-                    f"Label {labelid} do not exist for sample {sampleid} in dataset {dataid}."
-                )
+                if rows.shape[0] > 0:
+                    chunk = chunk.iloc[rows]
+                    maxid = max(maxid, chunk['id'].max())
+                    chunk.to_csv(ftmp, mode='a', index=False, header=False)
+                    ftmp.flush()
 
-        # Write back remaining samples:
-        labels.to_csv(util.db('label'), index=False)
+            # overwrite the db csv
+            shutil.copy(ftmp.name, util.db('label'))
+            util.setCurrentID(userid, 'label', maxid+1)
 
-    def add(self, userid, dataid, sampleid, 
-            labeldef, kind, position, 
-            status='draft'):
+        finally:
+            os.remove(ftmp.name)
 
-        util.assert_sample(userid, dataid, sampleid)
+    def add(self, userid, dataid, sampleid,
+            classid, kind, position):
+        previd = util.getNextID(userid, 'label')
 
-        labels  = pd.read_csv(util.db('label'))
-        records = labels[
-            (labels['dataset'] == dataid) & (labels['sample'] == sampleid)
-        ]
+        # Write data to the csv:
+        labelid = previd + 1
+        timestamp = util.now()
 
-        # Get path for saving segmentation:
-        labelid = "L" + sampleid + str(len(records)+1)
-        datasets = pd.read_csv(util.db('dataset'))
-        datafolder = datasets.loc[datasets['id'] == dataid,'path'][0]
-        labelpath = os.path.join(datafolder,sampleid,labelid+".png")
-
+        # Create a dictory of entries:
         entry = {
-            'id'        : labelid,
-            'dataset'   : dataid,
-            'sample'    : sampleid,
-            'labeldef'  : labeldef,
-            'type'      : kind,
-            'position'  : position,
-            'path'      : str(labelpath),
-            'status'    : status,
-            'createdon' : util.now(),
-            'modifiedon': util.now(),
-            'modifiedby': userid
+            'id': labelid,
+            'userid': userid,
+            'dataid': dataid,
+            'sampleid': sampleid,
+            'classid': classid,
+            'type': kind,
+            'position': position,
+            'createdon': timestamp,
+            'modifiedon': timestamp,
+            'modifiedby': userid,
         }
 
-        # save to database:
-        labels = labels.append(entry, ignore_index=True)
-        labels.to_csv(util.db('label'), index=False)
+        with open(util.db('label'), 'a') as label:
+            writer = csv.DictWriter(label, self.columns)
+            writer.writerow(entry)
+
+        util.setCurrentID(userid, 'label', previd+1)
 
         return entry
 
-    def modify(self, labelid, userid, dataid, sampleid, 
-               position = None, 
-               status = None):
-               
-        util.assert_sample(userid, dataid, sampleid)
+    def modify(
+        self, userid, dataid, sampleid, labelid,
+        position=None,
+        classid=None
+    ):
+        """
+        """
 
-        labels = pd.read_csv(util.db('label'))
-        row = (
-            (labels['dataset'] == dataid) &
-            (labels['sample'] == sampleid) & 
-            (labels['id'] == labelid)
+        ftmp = tempfile.NamedTemporaryFile(
+            mode='a', delete=False, dir=util.db(name=None), suffix=".csv"
         )
 
-        if not any(row):
-            raise ValueError(f"Label {labelid} not found for {sampleid} in {dataid}.")
+        # write columns to file:
+        writer = csv.DictWriter(ftmp, self.columns)
+        writer.writeheader()
+        ftmp.flush()
 
-        else:
-            entry = labels.loc[row]
-            entry = entry.to_dict('r')[0]
+        entries = []
+        try:
+            for chunk in pd.read_csv(
+                util.db('label'), chunksize=self.chunksize
+            ):
+                # check labelid exists in chunk and update the rows:
+                rows = np.where(
+                    (chunk['userid'] == userid) &
+                    (chunk['dataid'] == dataid) &
+                    (chunk['sampleid'] == sampleid) &
+                    (chunk.id.isin(labelid))
+                )[0]
 
-            if position != None:
-                entry['position'] = position
-            if status != None:
-                entry['status'] = status
+                cids = chunk.iloc[rows, 'id'].values
+                sids = [np.where(labelid == x)[0][0] for x in cids]
 
-            entry['modifiedon'] = util.now()
-            entry['modifiedby'] = userid
+                if position is not None:
+                    chunk.iloc[rows, 'position'] = position[sids]
+                if classid is not None:
+                    chunk.iloc[rows, 'status'] = classid[sids]
 
-            labels.drop(labels[row].index, inplace=True)
-            labels = labels.append(entry, ignore_index=True)
-            labels.to_csv(util.db('label'), index=False)
+                # write updated rows back
+                chunk.to_csv(ftmp, mode='a', index=False, header=False)
+                ftmp.flush()
+                entries += chunk.iloc[rows].to_dict('r')
 
-            return entry
+            # overwrite the db csv
+            shutil.copy(ftmp.name, util.db('label'))
+
+        finally:
+            os.remove(ftmp.name)
+
+        return entries

@@ -15,7 +15,6 @@ class ImageAnnotator extends Component {
         this.state = {
             size: { w: 0, h: 0 },
             zoom: 1,
-            imgsize: {},
             cursor: 'default',
             mode: this.props.mode,
             cursor: 'crosshair',
@@ -25,14 +24,19 @@ class ImageAnnotator extends Component {
 
         // Create references:
         this.canvas = React.createRef();
+        this.axes = React.createRef();
+        this.container = React.createRef();
     }
 
     componentDidMount() {
-        window.addEventListener('resize', this.resize.bind(this))
+        this.resize();
+        window.addEventListener('resize', this.resize)
     }
 
-    componentWillUnmount() {
-        window.removeEventListener('resize', this.resize.bind(this))
+    componentDidUpdate(prevProps, prevState) {
+        if (prevProps.source != this.props.source) {
+            this.resize();
+        }
     }
 
     /**
@@ -42,27 +46,46 @@ class ImageAnnotator extends Component {
     scrollImage(evd) {
         if (this.state.isdrawing) return
         const delta = evd.deltaY * -0.01;
-        this.setState({ 
+        this.setState({
             zoom: (this.state.zoom + delta > 1) ?
-                    Math.max(1, this.state.zoom + delta) : 
-                    1
+                Math.max(1, this.state.zoom + delta) :
+                1
         });
     }
 
-    dragImage(evd) {} // TODO 
+    dragImage(evd) { } // TODO 
 
-    resize(evd) {} // TODO
+    resize = () => {
+        /**
+         * Position the container in the parent based on the image size and 
+         * height.
+         */
 
-    setImageSize(){
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                if (this.canvas.current != undefined){
-                    this.setState({
-                        imgsize: this.canvas.current.getBoundingClientRect()
-                    })
+        const { source } = this.props;
+        const parent = this.container.current;
+
+        if (parent != undefined) {
+            const position = parent.getBoundingClientRect();
+            var img = new Image();
+            img.src = source;
+
+            // Compute container and image dimensions:
+            var w_parent = position.width;
+            var h_parent = position.height;
+            var w_image = img.naturalWidth;
+            var h_image = img.naturalHeight;
+            var scale = Math.min(
+                h_parent / h_image,
+                w_parent / w_image
+            );
+
+            this.setState({
+                size: {
+                    w: w_image * scale,
+                    h: h_image * scale,
                 }
             })
-        })
+        }
     }
 
     /**
@@ -127,10 +150,10 @@ class ImageAnnotator extends Component {
         if (onDrawFinish !== undefined) {
             const box = this.state.box.position;
             const imgpos = this.canvas.current.getBoundingClientRect();
-            var W  = Math.abs(Math.round((box[1] - box[0]) * imgpos.width));
+            var W = Math.abs(Math.round((box[1] - box[0]) * imgpos.width));
             var H = Math.abs(Math.round((box[3] - box[2]) * imgpos.height));
-            
-            if (W > 0 && H > 0){
+
+            if (W > 0 && H > 0) {
                 onDrawFinish(this.state.box);
             }
         }
@@ -148,48 +171,60 @@ class ImageAnnotator extends Component {
      */
     render() {
 
-        const labels = this.props.labels;
+        const { labels } = this.props;
 
         return (
-            <div
-                onMouseDown={this.startDrawing.bind(this)}
-                onMouseMove={this.updateDrawing.bind(this)}
-                onMouseUp={this.finishDrawing.bind(this)}
-                onWheelCapture={this.scrollImage.bind(this)}
-                style={{
-                    ...this.props.style,
-                    transform: `
-                        scale(${this.state.zoom})
-                    `,
-                }}
-            >
-                <IMAGE
-                    ref={this.canvas}
-                    src={this.props.source}
-                    onLoad={this.setImageSize.bind(this)}
-                    onDragCapture={this.dragImage.bind(this)}
+            <div className="flex relative rounded overflow-hidden w-full h-full" ref={this.container}>
+                <div
+                    ref={this.axes}
+                    onMouseDown={this.startDrawing.bind(this)}
+                    onMouseMove={this.updateDrawing.bind(this)}
+                    onMouseUp={this.finishDrawing.bind(this)}
+                    onWheelCapture={this.scrollImage.bind(this)}
                     style={{
-                        cursor: 'crosshair',
+                        ...this.props.style,
+                        width: this.state.size.w + "px",
+                        height: this.state.size.h + "px",
+                        position: "absolute",
+                        top: "50%",
+                        left: "50%",
+                        transform: `
+                            translate(-50%,-50%) 
+                            scale(${this.state.zoom})
+                        `,
                     }}
-                />
-                {
-                    this.state.isdrawing &&
-                    <Box
-                        position={this.state.box.position}
-                        scale={this.state.zoom}
-                        container={this.canvas.current}
-                        redraw={true}
+                >
+                    <img
+                        className="rounded"
+                        ref={this.canvas}
+                        src={this.props.source}
+                        onDragCapture={this.dragImage.bind(this)}
+                        style={{
+                            height: "100%",
+                            width: "100%",
+                            cursor: 'crosshair',
+                            position: 'absolute',
+                        }}
                     />
-                }
-                {labels.map((label) => (
-                    <Box
-                        key={label.id}
-                        redraw={false}
-                        position={label.position}
-                        scale={this.state.zoom}
-                        container={this.canvas.current}
-                    />
-                ))}
+                    {
+                        this.state.isdrawing &&
+                        <Box
+                            position={this.state.box.position}
+                            scale={this.state.zoom}
+                            container={this.canvas.current}
+                            redraw={true}
+                        />
+                    }
+                    {labels.map((label) => (
+                        <Box
+                            key={label.id}
+                            redraw={false}
+                            position={label.position}
+                            scale={this.state.zoom}
+                            container={this.canvas.current}
+                        />
+                    ))}
+                </div>
             </div>
         )
     }

@@ -594,7 +594,7 @@ class Datasample(Resource):
                 # write updated rows back
                 chunk.to_csv(ftmp, mode='a', index=False, header=False)
                 ftmp.flush()
-                entries.append(chunk.iloc[rows].to_dict('r'))
+                entries += chunk.iloc[rows].to_dict('r')
 
             # overwrite the db csv
             shutil.copy(ftmp.name, util.db('datasample'))

@@ -62,7 +62,7 @@ export class LargeDatasetCard extends React.Component {
 
         return (
             <div 
-                className="flex px-4 py-4 rounded-md bg-theme w-full h-full"
+                className="flex px-4 py-4 rounded-md bg-theme3 w-full h-full"
                 onDoubleClick={()=>onEdit(data)}
             >
                 <div className="grid grid-flow-row w-full"

@@ -17,6 +17,7 @@ button {
 
 *::-webkit-scrollbar {
 	width: 3px;
+	height: 2px;
 }
   
 *::-webkit-scrollbar-track {

@@ -13,7 +13,13 @@ module.exports = {
                 navbar: "#fafafa",
                 hover: "rgb(216, 237, 223)",
                 selected: "rgb(155, 196, 169)",
-                theme: "#D7E4CF",
+                theme1: "#ACB5AD",
+                theme2: "#BED2C0",
+                theme3: "#D7E4CF",
+                theme4: "#6D8971",
+                theme5: "#4E7B5D",
+                theme6: "#2C4838",
+                theme7: "#081918",
                 card: "#e7f0f2"
             },
             backgroundImage: theme => ({

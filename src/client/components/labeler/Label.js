@@ -54,16 +54,15 @@ export default class Label extends React.Component {
 
     render() {
 
-        var { label, position, image, selected } = this.props;
-        const dim = 50;
+        var { label, type, category, position, image, selected } = this.props;
+        const dim = 36;
 
         // Calculate a N-by-N region around the bounding box to 
         // display as the label thumbnail.
         var { position } = this.props.label;
         if (position.constructor == String) {
-            position = position.replace(/\s+/g, '');
             position = position.slice(1, position.length - 1);
-            position = position.split(',').map((x) => {
+            position = position.split(' ').map((x) => {
                 return Number(x.trim())
             });
         }
@@ -98,15 +97,15 @@ export default class Label extends React.Component {
 
         return (
             <div
-                className="flex w-full flex-row px-3 py-3 mr-2 place-items-center border hover:pointer"
+                className="flex w-full flex-row px-4 py-3 place-items-center hover:pointer bg-opacity-50"
                 style={{
-                    borderColor: selected ? "black" : "transparent",
+                    backgroundColor: selected ? "rgb(190,210,192,0.4)" : "transparent",
                     cursor: "pointer",
                 }}
                 onClick={this.clicked.bind(this)}
             >
                 <div
-                    className="flex rounded-sm"
+                    className="flex rounded-sm bg-black"
                     style={{
                         backgroundImage: 'url(' + this.props.image + ')',
                         backgroundSize: bgw + "px " + bgh + "px",
@@ -126,7 +125,7 @@ export default class Label extends React.Component {
                             cursor: "pointer",
                         }}
                     >
-                        {label.labeldef}
+                        {category !== undefined ? category.name : "unknown"}
                     </p>
                     <p className="items-start font-poppins flex flex-grow text-xs h-4 text-gray-400"
                         style={{
@@ -135,12 +134,13 @@ export default class Label extends React.Component {
                             cursor: "pointer",
                         }}
                     >
-                        Bounding Box
+                        Box
                     </p>
                 </div>
-                <div id='controlbar' className="flex flex-row place-items-center"
+                <div id='controlbar' className="flex-row place-items-center"
                     style={{
-                        strokeWidth: "1px",
+                        display: selected ? "flex": "none",
+                        strokeWidth: "1.5px",
                         cursor: "pointer",
                     }}
                 >
