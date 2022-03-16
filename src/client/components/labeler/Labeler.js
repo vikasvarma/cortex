@@ -2,6 +2,7 @@
  * 
  */
 import React, { Component } from 'react';
+import tw from 'tailwind-styled-components';
 import { RadioGroup } from '@headlessui/react'
 import {
     HiOutlineMenu,
@@ -11,18 +12,6 @@ import {
     HiOutlineDocumentSearch
 } from "react-icons/hi";
 import { BiCommentDetail } from 'react-icons/bi';
-import {
-    Grid,
-    Cell,
-    ToolbarContainer,
-    ToolbarButton,
-    BreadCrumb,
-    CloseButton,
-    LabelToolContainer,
-    LabelToolIcon,
-    SampleName,
-    DatasetName
-} from './labeler.styles';
 import {
     RiPenNibLine,
     RiShapeLine,
@@ -189,7 +178,7 @@ export default class Labeler extends Component {
         const sample = this.getSample(this.state.current);
 
         return (
-            <Grid
+            <LabelerContainer
                 style={{
                     gridTemplateRows: "3.5rem auto",
                     gridTemplateColumns: "4rem auto 20rem"
@@ -314,7 +303,7 @@ export default class Labeler extends Component {
                         image={this.state.image}
                     />
                 </div>
-            </Grid>
+            </LabelerContainer>
         );
     }
 };
@@ -348,6 +337,18 @@ class SampleBrowser extends React.Component {
         }
     }
 
+    next = () => {
+        const browser = this.browser.current;
+        browser.scrollLeft += browser.clientWidth;
+        this.setRange();
+    }
+
+    previous = () => {
+        const browser = this.browser.current;
+        browser.scrollLeft -= browser.clientWidth;
+        this.setRange();
+    }
+
     selectSample = (index, image) => {
         const { samples, onSampleSelected } = this.props;
         this.setState({ selected: index });
@@ -363,7 +364,7 @@ class SampleBrowser extends React.Component {
         var width = this.unitWidth + 32;
         if (browser) {
             range[0] = Math.max(Math.ceil(browser.scrollLeft/width),1);
-            range[1] = range[0] + Math.ceil(browser.clientWidth / width) - 1;
+            range[1] = range[0] + Math.round(browser.clientWidth / width) - 1;
         }
         this.setState({
             range: range,
@@ -394,20 +395,25 @@ class SampleBrowser extends React.Component {
                     <h1 className="font-semibold font-poppins text-xl">Explore</h1>
                     <div className="flex flex-grow w-full"></div>
                     <div className="flex flex-row gap-1 place-items-center">
-                        <button className="focus:outline-none">
+                        <button 
+                            className="focus:outline-none"
+                            disabled={range[0] === 1}
+                            onClick={this.previous}
+                        >
                             <svg width="24" height="24" viewBox="0 0 26 26">
                                 <path d="M18.4 13.5C18.6761 13.5 18.9 13.2761 18.9 13C18.9 12.7239 18.6761 12.5 18.4 12.5V13.5ZM7.6 13L7.24645 12.6464L6.89289 13L7.24645 13.3536L7.6 13ZM11.5536 9.75356C11.7488 9.55829 11.7488 9.24171 11.5536 9.04645C11.3583 8.85119 11.0417 8.85119 10.8464 9.04645L11.5536 9.75356ZM10.8464 16.9536C11.0417 17.1488 11.3583 17.1488 11.5536 16.9536C11.7488 16.7583 11.7488 16.4417 11.5536 16.2464L10.8464 16.9536ZM18.4 12.5H7.6V13.5H18.4V12.5ZM10.8464 9.04645L7.24645 12.6464L7.95355 13.3536L11.5536 9.75356L10.8464 9.04645ZM7.24645 13.3536L10.8464 16.9536L11.5536 16.2464L7.95355 12.6464L7.24645 13.3536ZM25.5 13C25.5 6.09644 19.9036 0.500002 13 0.500002V1.5C19.3513 1.5 24.5 6.64873 24.5 13H25.5ZM13 0.500002C6.09644 0.500002 0.5 6.09644 0.5 13H1.5C1.5 6.64873 6.64873 1.5 13 1.5V0.500002ZM0.5 13C0.5 19.9036 6.09644 25.5 13 25.5V24.5C6.64873 24.5 1.5 19.3513 1.5 13H0.5ZM13 25.5C19.9036 25.5 25.5 19.9036 25.5 13H24.5C24.5 19.3513 19.3513 24.5 13 24.5V25.5Z" fill={range[0] === 1 ? "rgba(0,0,0,0.2)" : "black"}/>
                             </svg>
                         </button>
-                        <p className="flex font-poppins font-light text-xs w-20 justify-center">{
+                        <p className="flex-grow font-poppins font-light text-xs w-20 text-center">{
                             range[0] + "-" + range[1] + " / " + samples.length
                         }</p>
-                        <button className="focus:outline-none">
+                        <button 
+                            className="focus:outline-none"
+                            disabled={range[1] === samples.length-1}
+                            onClick={this.next}
+                        >
                             <svg width="24" height="24" viewBox="0 0 26 26">
-                                <path d="M7.6 12.5C7.32386 12.5 7.1 12.7239 7.1 13C7.1 13.2761 7.32386 13.5 7.6 13.5L7.6 12.5ZM18.4 13L18.7536 13.3536L19.1071 13L18.7536 12.6464L18.4 13ZM14.4464 16.2464C14.2512 16.4417 14.2512 16.7583 14.4464 16.9536C14.6417 17.1488 14.9583 17.1488 15.1536 16.9536L14.4464 16.2464ZM15.1536 9.04645C14.9583 8.85118 14.6417 8.85118 14.4464 9.04645C14.2512 9.24171 14.2512 9.55829 14.4464 9.75355L15.1536 9.04645ZM7.6 13.5L18.4 13.5L18.4 12.5L7.6 12.5L7.6 13.5ZM15.1536 16.9536L18.7536 13.3536L18.0464 12.6464L14.4464 16.2464L15.1536 16.9536ZM18.7536 12.6464L15.1536 9.04645L14.4464 9.75355L18.0464 13.3536L18.7536 12.6464ZM0.500001 13C0.5 19.9036 6.09644 25.5 13 25.5L13 24.5C6.64872 24.5 1.5 19.3513 1.5 13L0.500001 13ZM13 25.5C19.9036 25.5 25.5 19.9036 25.5 13L24.5 13C24.5 19.3513 19.3513 24.5 13 24.5L13 25.5ZM25.5 13C25.5 6.09644 19.9036 0.500001 13 0.500001L13 1.5C19.3513 1.5 24.5 6.64873 24.5 13L25.5 13ZM13 0.500001C6.09644 0.5 0.500002 6.09644 0.500001 13L1.5 13C1.5 6.64872 6.64873 1.5 13 1.5L13 0.500001Z" fill={
-                                    range[1] < samples.length-1 ? 
-                                    "black" : "rgba(0,0,0,0.2)"
-                                }/>
+                                <path d="M7.6 12.5C7.32386 12.5 7.1 12.7239 7.1 13C7.1 13.2761 7.32386 13.5 7.6 13.5L7.6 12.5ZM18.4 13L18.7536 13.3536L19.1071 13L18.7536 12.6464L18.4 13ZM14.4464 16.2464C14.2512 16.4417 14.2512 16.7583 14.4464 16.9536C14.6417 17.1488 14.9583 17.1488 15.1536 16.9536L14.4464 16.2464ZM15.1536 9.04645C14.9583 8.85118 14.6417 8.85118 14.4464 9.04645C14.2512 9.24171 14.2512 9.55829 14.4464 9.75355L15.1536 9.04645ZM7.6 13.5L18.4 13.5L18.4 12.5L7.6 12.5L7.6 13.5ZM15.1536 16.9536L18.7536 13.3536L18.0464 12.6464L14.4464 16.2464L15.1536 16.9536ZM18.7536 12.6464L15.1536 9.04645L14.4464 9.75355L18.0464 13.3536L18.7536 12.6464ZM0.500001 13C0.5 19.9036 6.09644 25.5 13 25.5L13 24.5C6.64872 24.5 1.5 19.3513 1.5 13L0.500001 13ZM13 25.5C19.9036 25.5 25.5 19.9036 25.5 13L24.5 13C24.5 19.3513 19.3513 24.5 13 24.5L13 25.5ZM25.5 13C25.5 6.09644 19.9036 0.500001 13 0.500001L13 1.5C19.3513 1.5 24.5 6.64873 24.5 13L25.5 13ZM13 0.500001C6.09644 0.5 0.500002 6.09644 0.500001 13L1.5 13C1.5 6.64872 6.64873 1.5 13 1.5L13 0.500001Z" fill="black"/>
                             </svg>
                         </button>
                     </div>
@@ -545,3 +551,118 @@ class Sample extends React.Component {
         )
     }
 }
+
+export const ToolbarButton = tw.button`
+    flex
+    rounded-full
+    w-10 h-10 my-2 mx-1
+    text-gray-400
+    text-sm font-medium font-inter
+    align-center justify-center items-center
+
+    hover:cursor-pointer
+    hover:text-theme
+    hover:font-bold
+    hover:ring-opacity-50
+
+    focus:outline-none
+    focus:bg-opacity-75
+`
+
+export const BreadCrumb = tw.ol`
+    flex
+    items-center
+    h-full
+    justify-start
+    space-x-2
+`
+
+export const CloseButton = tw.div`
+    flex
+    w-full h-full
+    text-gray-400
+    row-start-1 col-start-1
+    justify-center
+    items-center
+    align-middle
+    hover:text-theme
+    hover:font-bold
+    hover:cursor-pointer
+    border-r
+`
+
+export const LabelerContainer = tw.div`
+    grid
+    w-full
+    h-full
+`
+
+export const Cell = tw.div`
+    flex
+    w-full
+    h-auto
+`
+
+export const ToolbarContainer = tw.div`
+    grid
+    items-center
+    text-sm 
+    text-gray-500
+    font-regular
+    font-system
+    tracking-wide
+    w-full
+    h-full
+    bg-white
+    border-b
+    border-gray-200
+    border-opacity-50
+`
+
+export const LabelToolContainer = tw.div`
+    flex
+    w-full
+    align-middle 
+    justify-center 
+    py-8
+    border-r
+`
+
+export const LabelToolIcon = tw.div`
+    flex 
+    items-center
+    justify-center 
+    w-10
+    h-10
+    rounded-sm
+    transition-all
+    duration-100
+    ring-white
+    hover:ring-theme
+    hover:ring-opacity-75
+    hover:cursor-pointer
+`
+
+export const DatasetName = tw.a`
+    mx-3
+    text-sm 
+    text-gray-500
+    font-regular
+    font-poppins
+    tracking-wide
+    overflow-hidden
+    hover:text-theme
+    hover:border-b
+`
+
+export const SampleName = tw.a`
+    flex
+    ml-1
+    text-sm
+    font-regular
+    font-poppins
+    font-semibold
+    scale-y-125
+    text-gray-800
+    uppercase
+`

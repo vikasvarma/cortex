@@ -143,7 +143,10 @@ export class Box extends Component {
         return (
             <BoxContainer 
                 ref={this.container}
-                style={this.state.style} 
+                style={{
+                    ...this.state.style,
+                    cursor: "crosshair",
+                }} 
                 className={'border-white'}
                 onMouseOver={this.select.bind(this)}
                 onMouseOut={this.deselect.bind(this)}

@@ -114,7 +114,7 @@ function WelcomeGraphic() {
     );
 }
 
-function Background() {
+export function Background() {
     return (
         <svg className="fixed mx-5 my-5" width="100%" height="100%" fill="none">
             <defs>
